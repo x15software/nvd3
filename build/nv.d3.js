@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.2 (https://github.com/novus/nvd3) 2016-01-24 */
+/* nvd3 version 1.8.2 (https://github.com/novus/nvd3) 2016-06-20 */
 (function(){
 
 // set up main nv object
@@ -1657,6 +1657,8 @@ nv.utils.arrayEquals = function (array1, array2) {
                     var xTicks = g.selectAll('g').select("text");
                     var rotateLabelsRule = '';
                     if (rotateLabels%360) {
+                        //Reset transform on ticks so textHeight can be calculated correctly
+                        xTicks.attr('transform', ''); 
                         //Calculate the longest xTick width
                         xTicks.each(function(d,i){
                             var box = this.getBoundingClientRect();
