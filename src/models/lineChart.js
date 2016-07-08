@@ -10,6 +10,7 @@ nv.models.lineChart = function() {
         , yAxis = nv.models.axis()
         , legend = nv.models.legend()
         , interactiveLayer = nv.interactiveGuideline()
+        , zoomLayer = nv.zoomLayer()
         , tooltip = nv.models.tooltip()
         , focus = nv.models.focus(nv.models.line())
         ;
@@ -26,11 +27,12 @@ nv.models.lineChart = function() {
         , useInteractiveGuideline = false
         , x
         , y
+        , zoomType = null
         , focusEnable = false
         , state = nv.utils.state()
         , defaultState = null
         , noData = null
-        , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'stateChange', 'changeState', 'renderEnd')
+        , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'stateChange', 'changeState', 'renderEnd', 'zoom')
         , duration = 250
         ;
 
@@ -123,11 +125,6 @@ nv.models.lineChart = function() {
                 container.selectAll('.nv-noData').remove();
             }
 
-            /* Update `main' graph on brush update. */
-            focus.dispatch.on("onBrush", function(extent) {
-                onBrush(extent);
-            });
-
             // Setup Scales
             x = lines.xScale();
             y = lines.yScale();
@@ -145,6 +142,7 @@ nv.models.lineChart = function() {
             focusEnter.append('g').attr('class', 'nv-y nv-axis');
             focusEnter.append('g').attr('class', 'nv-linesWrap');
             focusEnter.append('g').attr('class', 'nv-interactive');
+            focusEnter.append('g').attr('class', 'nv-zoomLayer');
 
             var contextEnter = gEnter.append('g').attr('class', 'nv-focusWrap');
 
@@ -162,7 +160,7 @@ nv.models.lineChart = function() {
                     wrap.select('.nv-legendWrap')
                         .attr('transform', 'translate(0,' + availableHeight +')');
                 } else if (legendPosition === 'top') {
-                    if (legend.height() > margin.top) {
+                    if ( margin.top != legend.height()) {
                         margin.top = legend.height();
                         availableHeight = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focus.height() : 0);
                     }
@@ -188,6 +186,67 @@ nv.models.lineChart = function() {
                     .svgContainer(container)
                     .xScale(x);
                 wrap.select(".nv-interactive").call(interactiveLayer);
+
+                zoomLayer
+                    .width(availableWidth)
+                    .height(availableHeight)
+                    .margin({left:margin.left, top:margin.top})
+                    .svgContainer(container)
+                    .xScale(x);
+                wrap.select(".nv-zoomLayer").call(zoomLayer);
+            }
+
+            if (zoomType && zoomType == 'x') {
+                if (wrap.selectAll(".nv-zoomLayer g.button").node() == null) {
+                    var resetZoomButton = wrap.select(".nv-zoomLayer")
+                        .append('g')
+                        .attr('class', 'button')
+                        .attr('cursor', 'pointer')
+                    resetZoomButton.append('rect')
+                        .attr('x', availableWidth - 72 - 20)
+                        .attr('y', 4)
+                        .attr('rx', 2)
+                        .attr('ry', 2)
+                        .attr('width', 78)
+                        .attr('height', 25)
+                        .attr('fill', '#fff')
+                        .attr('stroke', '#999')
+                        .attr('strokeWidth', 1)
+
+                    resetZoomButton
+                        .append('text')
+                        .attr('x', availableWidth - 72 - 10)
+                        .attr('y', 22)
+                        .text('Rest Zoom');
+
+                    resetZoomButton.on('click', function() {
+                        var min = d3.min(container.data()[0], function(d) {
+                            return d3.min(d.values, function(d) {
+                                return chart.x()(d);
+                            })
+                        });
+                        var max = d3.max(container.data()[0], function(d) {
+                            return d3.max(d.values, function(d) {
+                                return chart.x()(d);
+                            })
+                        });
+                        chart.options({
+                            xDomain: [min, max]
+                        });
+
+                        dispatch.zoom({
+                            type: 'reset',
+                            xDomain: [min, max]
+                        });
+
+                        chart.update();
+                    });
+                } else {
+                    wrap.select(".nv-zoomLayer g.button rect")
+                        .attr('x', availableWidth - 72 - 20)
+                    wrap.select(".nv-zoomLayer g.button text")
+                        .attr('x', availableWidth - 72 - 10)
+                }
             }
 
             g.select('.nv-focus .nv-background rect')
@@ -320,6 +379,7 @@ nv.models.lineChart = function() {
                 };
 
                 interactiveLayer.tooltip
+                    .chartContainer(chart.container.parentNode)
                     .valueFormatter(interactiveLayer.tooltip.valueFormatter() || defaultValueFormatter)
                     .data({
                         value: chart.x()( singlePoint,pointIndex ),
@@ -357,6 +417,81 @@ nv.models.lineChart = function() {
 
             interactiveLayer.dispatch.on("elementMouseout",function(e) {
                 lines.clearHighlights();
+            });
+
+            if (zoomType == 'x') {
+                //---drag---
+                var currentXValue = null;
+                //the svg position x of drag point
+                var dragStartX = null;
+                // the point.x value of drag point
+                var dragStartXValue = null;
+                var dragStartYValue = null;
+                zoomLayer.dispatch.on('elementMousemove', function(e) {
+                    if (dragStartXValue === null) {
+                        return;
+                    }
+                    var pointXLocation;
+                    currentXValue = e.pointXValue;
+                    data.filter(function(series, i) {
+                        series.seriesIndex = i;
+                        return !series.disabled;
+                    }).forEach(function(series) {
+                        var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
+                        var point = series.values[pointIndex];
+
+                        if (typeof point === 'undefined') return;
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(chart.x()(point,pointIndex));
+
+                    });
+
+                    zoomLayer.updateSelectArea(dragStartX, pointXLocation)
+                });
+
+                zoomLayer.dispatch.on("elementDragStart", function(e) {
+                    var pointXLocation;
+                    dragStartXValue = e.pointXValue;
+                    data.filter(function(series, i) {
+                        series.seriesIndex = i;
+                        return !series.disabled;
+                    }).forEach(function(series) {
+                        var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
+                        var point = series.values[pointIndex];
+
+                        if (typeof point === 'undefined') return;
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(chart.x()(point,pointIndex));
+                    });
+
+                    dragStartX = pointXLocation;
+
+                    zoomLayer.renderSelectArea(pointXLocation)
+                });
+
+                zoomLayer.dispatch.on("elementDragEnd", function(e) {
+                    if (dragStartXValue != currentXValue) {
+                        var xDomain = [
+                            d3.min([dragStartXValue, currentXValue]),
+                            d3.max([dragStartXValue, currentXValue])
+                        ];
+                        chart.options({
+                            xDomain: xDomain
+                        });
+
+                        chart.update();
+                        dispatch.zoom({
+                            type: 'zoom',
+                            xDomain: xDomain
+                        });
+                    }
+
+                    dragStartXValue = null;
+                    dragStartX = null;
+                    zoomLayer.removeSelectArea();
+                });
+            }
+            /* Update `main' graph on brush update. */
+            focus.dispatch.on("onBrush", function(extent) {
+                onBrush(extent);
             });
 
             dispatch.on('changeState', function(e) {
@@ -461,6 +596,7 @@ nv.models.lineChart = function() {
         legendPosition: {get: function(){return legendPosition;}, set: function(_){legendPosition=_;}},
         showXAxis:      {get: function(){return showXAxis;}, set: function(_){showXAxis=_;}},
         showYAxis:    {get: function(){return showYAxis;}, set: function(_){showYAxis=_;}},
+        zoomType:    {get: function(){return zoomType;}, set: function(_){zoomType=_;}},
         defaultState:    {get: function(){return defaultState;}, set: function(_){defaultState=_;}},
         noData:    {get: function(){return noData;}, set: function(_){noData=_;}},
         // Focus options, mostly passed onto focus model.
