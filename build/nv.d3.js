@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.4-dev (https://github.com/novus/nvd3) 2016-07-11 */
+/* nvd3 version 1.8.4-dev (https://github.com/novus/nvd3) 2016-07-15 */
 (function(){
 
 // set up main nv object
@@ -6112,7 +6112,7 @@ nv.models.legend = function() {
             var g = wrap.select('g');
 
             if (rightAlign)
-                wrap.attr('transform', 'translate(' - margin.right + ',' + margin.top + ')');
+                wrap.attr('transform', 'translate(' + margin.right + ',' + margin.top + ')');
             else
                 wrap.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
@@ -11885,7 +11885,7 @@ nv.models.scatter = function() {
         , useVoronoi   = true
         , duration     = 250
         , interactiveUpdateDelay = 300
-        , showLabels    = false 
+        , showLabels    = false
         ;
 
 
@@ -11943,7 +11943,7 @@ nv.models.scatter = function() {
             });
 
             // Setup Scales
-            var logScale = chart.yScale().name === d3.scale.log().name ? true : false; 
+            var logScale = chart.yScale().name === d3.scale.log().name ? true : false;
             // remap and flatten the data for use in calculating the scales' domains
             var seriesData = (xDomain && yDomain && sizeDomain) ? [] : // if we know xDomain and yDomain and sizeDomain, no need to calculate.... if Size is constant remember to set sizeDomain to speed up performance
                 d3.merge(
@@ -12023,7 +12023,7 @@ nv.models.scatter = function() {
                 .attr('id', 'nv-edge-clip-' + id)
                 .append('rect')
                 .attr('transform', 'translate( -10, -10)');
-                
+
             wrap.select('#nv-edge-clip-' + id + ' rect')
                 .attr('width', availableWidth + 20)
                 .attr('height', (availableHeight > 0) ? availableHeight + 20 : 0);
@@ -12304,10 +12304,10 @@ nv.models.scatter = function() {
                     .type(function(d) { return getShape(d[0]); })
                     .size(function(d) { return z(getSize(d[0],d[1])) })
             );
-            
-            // add label a label to scatter chart 
+
+            // add label a label to scatter chart
             if(showLabels)
-            {      
+            {
                 var titles =  groups.selectAll('.nv-label')
                     .data(function(d) {
                         return d.values.map(
@@ -12320,7 +12320,7 @@ nv.models.scatter = function() {
                         });
 
                 titles.enter().append('text')
-                    .style('fill', function (d,i) { 
+                    .style('fill', function (d,i) {
                         return d.color })
                     .style('stroke-opacity', 0)
                     .style('fill-opacity', 1)
@@ -12389,6 +12389,8 @@ nv.models.scatter = function() {
             return null;
         };
         this.highlightPoint = function (seriesIndex, pointIndex, isHoverOver) {
+            this.clearHighlights();
+
             nv.dom.write(function() {
                 container.select('.nv-groups')
                   .selectAll(".nv-series-" + seriesIndex)
