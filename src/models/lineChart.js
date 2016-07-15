@@ -198,7 +198,7 @@ nv.models.lineChart = function() {
                 .width(availableWidth)
                 .height(availableHeight)
                 .color(data.map(function(d,i) {
-                    return d.color || color(d, i);
+                    return color(d, i);
                 }).filter(function(d,i) { return !data[i].disabled; }));
 
             var linesWrap = g.select('.nv-linesWrap')
