@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.2 (https://github.com/novus/nvd3) 2016-09-10 */
+/* nvd3 version 1.8.2 (https://github.com/novus/nvd3) 2016-09-14 */
 (function(){
 
 // set up main nv object
@@ -10792,6 +10792,7 @@ nv.models.parallelCoordinatesChart = function () {
         , endAngle = false
         , cornerRadius = 0
         , donutRatio = 0.5
+        , duration = 250
         , arcsRadius = []
         , dispatch = d3.dispatch('chartClick', 'elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout', 'elementMousemove', 'renderEnd')
         ;
@@ -10967,6 +10968,7 @@ nv.models.parallelCoordinatesChart = function () {
 
             slices.select('path')
                 .transition()
+                .duration(duration)
                 .attr('d', function (d, i) { return arcs[i](d); })
                 .attrTween('d', arcTween);
 
@@ -11170,6 +11172,10 @@ nv.models.parallelCoordinatesChart = function () {
             margin.right  = typeof _.right  != 'undefined' ? _.right  : margin.right;
             margin.bottom = typeof _.bottom != 'undefined' ? _.bottom : margin.bottom;
             margin.left   = typeof _.left   != 'undefined' ? _.left   : margin.left;
+        }},
+        duration: {get: function(){return duration;}, set: function(_){
+            duration = _;
+            renderWatch.reset(duration);
         }},
         y: {get: function(){return getY;}, set: function(_){
             getY=d3.functor(_);
@@ -11408,6 +11414,7 @@ nv.models.pieChart = function() {
         duration: {get: function(){return duration;}, set: function(_){
             duration = _;
             renderWatch.reset(duration);
+            pie.duration(duration);
         }},
         margin: {get: function(){return margin;}, set: function(_){
             margin.top    = _.top    !== undefined ? _.top    : margin.top;
